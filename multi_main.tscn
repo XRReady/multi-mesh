@@ -4,6 +4,7 @@
 
 [node name="MultiMain" type="Node3D"]
 script = ExtResource("1_88l5r")
+enable_compute = false
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.5123494, -0.49689823, 0.70042145, 0.29336593, 0.8678088, 0.40105397, -0.8071149, 0, 0.5903944, 0, 0, 0)

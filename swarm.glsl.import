@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://bvpulilnbnhgf"
+path="res://.godot/imported/swarm.glsl-cfe21c89ea18cc75853c49d8aec7f311.res"
+
+[deps]
+
+source_file="res://swarm.glsl"
+dest_files=["res://.godot/imported/swarm.glsl-cfe21c89ea18cc75853c49d8aec7f311.res"]
+
+[params]
+
