@@ -23,8 +23,8 @@ struct MultiMeshTransform {
 layout(set = 0, binding = 0, std430) restrict buffer EntityBuffer { Entity entities[]; };
 layout(set = 0, binding = 1, std430) writeonly buffer TransformOutput { MultiMeshTransform final_transforms[]; };
 
-// Buffer B: Array of Atomic Counters (1000 distinct counters!)
-layout(set = 0, binding = 2, std430) restrict buffer CounterBuffer { uint visible_counts[]; };
+// Buffer B: Array of Atomic Counters (One for each swarm!)
+layout(set = 0, binding = 2, std430) restrict buffer CounterBuffer { uint visible_counts[]; }; 
 
 // -----------------------------------------------------------------------------
 // 3. PUSH CONSTANTS
@@ -34,7 +34,7 @@ layout(push_constant, std430) uniform Params {
 	float delta;
 	uint total_instances;
 	uint instances_per_swarm;
-	vec4 planes[6]; 
+	vec4 planes[6];
 } params;
 
 // -----------------------------------------------------------------------------
@@ -58,9 +58,8 @@ void main() {
 	uint idx = gl_GlobalInvocationID.x;
 	if (idx >= params.total_instances) { return; }
 
-	// --- MEGA-BUFFER MATH ---
-	uint MAX_PER_SWARM = 1000;
-	uint swarm_id = idx / MAX_PER_SWARM; 
+	// --- MEGA-BUFFER MATH (DYNAMIC!) ---
+	uint swarm_id = idx / params.instances_per_swarm; 
 
 	Entity e = entities[idx];
 
@@ -81,10 +80,10 @@ void main() {
 		uint local_slot = atomicAdd(visible_counts[swarm_id], 1);
 
 		// 2. Calculate the global offset in the Mega Transform Buffer
-		uint global_dst = (swarm_id * MAX_PER_SWARM) + local_slot;
+		uint global_dst = (swarm_id * params.instances_per_swarm) + local_slot;
 
 		// 3. Generate a unique base color for this specific swarm!
-		float hue = float(swarm_id) / 1000.0;
+		float hue = float(swarm_id) / 1000.0; 
 		vec3 swarm_color = vec3(
 			0.5 + 0.5 * cos(6.28318 * (hue + 0.0)),
 			0.5 + 0.5 * cos(6.28318 * (hue + 0.33)),
