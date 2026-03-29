@@ -1,7 +1,7 @@
 extends Node3D
 
 # --- Swarm Config (Editable in Inspector!) ---
-@export var swarm_count: int = 1000
+@export var swarm_count: int = 100 # back off to 100 since preformance tanked with a realistic mesh
 @export var instances_per_swarm: int = 1000
 @export var spawn_radius: float = 50.0
 
@@ -41,6 +41,8 @@ var push_constant_bytes := PackedByteArray()
 var time_elapsed: float = 0.0
 var compute_initialized: bool = false
 var total_instances: int
+var mesh_index_count: int = 0
+var active_materials: Array[Material] = []
 
 func _ready() -> void:
 	total_instances = swarm_count * instances_per_swarm
@@ -66,21 +68,71 @@ func _setup_camera() -> void:
 	cam.position = Vector3(0, 0, 120)
 	cam.look_at(Vector3.ZERO)
 	cam.make_current()
+	
+func _extract_mesh_from_scene(scene_path: String) -> Mesh:
+	var packed := load(scene_path) as PackedScene
+	if packed == null:
+		push_warning("Could not load scene: " + scene_path)
+		var fallback := BoxMesh.new()
+		fallback.size = Vector3.ONE
+		return fallback
+
+	var root := packed.instantiate()
+	
+	# Create a SurfaceTool to merge our meshes
+	var st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	var nodes = root.find_children("*", "MeshInstance3D", true, false)
+	
+	# Don't forget the root itself, just in case
+	if root is MeshInstance3D:
+		nodes.append(root)
+
+	var meshes_merged = 0
+	for node in nodes:
+		if node is MeshInstance3D and node.mesh != null:
+			# Use the node's local transform so the leaves stay above the trunk!
+			var xform = node.transform if node != root else Transform3D()
+			
+			# Append every surface of the mesh
+			for surface_idx in node.mesh.get_surface_count():
+				st.append_from(node.mesh, surface_idx, xform)
+			
+			meshes_merged += 1
+
+	root.queue_free()
+
+	if meshes_merged == 0:
+		push_warning("No MeshInstance3D with mesh found in: " + scene_path)
+		var fallback := BoxMesh.new()
+		fallback.size = Vector3.ONE
+		return fallback
+
+	# Commit bakes everything we appended into a single ArrayMesh
+	return st.commit()
 
 func _setup_server_swarm() -> void:
 	var scenario = get_world_3d().scenario
 	var massive_aabb = AABB(Vector3(-10000, -10000, -10000), Vector3(20000, 20000, 20000))
+	var mesh := _extract_mesh_from_scene("res://tree_2.tscn") #("res://player_capsule.tscn")
+	
+	# Extract the index count dynamically 
+	var arrays = mesh.surface_get_arrays(0)
+	var indices = arrays[Mesh.ARRAY_INDEX]
+	if indices != null:
+		mesh_index_count = indices.size()
+	else:
+		mesh_index_count = arrays[Mesh.ARRAY_VERTEX].size()
+	
+	# 1. Prepare the material ONCE outside the mesh
+	var mat: StandardMaterial3D = null
+	if enable_colors:
+		mat = StandardMaterial3D.new()
+		mat.vertex_color_use_as_albedo = true
+		active_materials.append(mat)
 	
 	for i in swarm_count:
-		# 1. Create the base mesh
-		var mesh = BoxMesh.new()
-		mesh.size = Vector3(1, 1, 1)
-		
-		if enable_colors:
-			var mat = StandardMaterial3D.new()
-			mat.vertex_color_use_as_albedo = true
-			mesh.material = mat
-			
 		base_meshes.append(mesh)
 		
 		# 2. Create the MultiMesh completely on the RenderingServer
@@ -115,6 +167,9 @@ func _setup_server_swarm() -> void:
 		
 		# Prevent Frustum Culling
 		RenderingServer.instance_set_custom_aabb(rs_instance, massive_aabb)
+		
+		if mat != null:
+			RenderingServer.instance_geometry_set_material_override(rs_instance, mat.get_rid())
 
 func _init_compute() -> void:
 	rd = RenderingServer.get_rendering_device()
@@ -250,6 +305,8 @@ func _process(delta: float) -> void:
 	var cmd_pc := PackedByteArray()
 	cmd_pc.resize(16)
 	cmd_pc.encode_u32(0, swarm_count)
+	cmd_pc.encode_u32(4, mesh_index_count)
+	
 	rd.compute_list_set_push_constant(cmd_list, cmd_pc, cmd_pc.size())
 	
 	var cmd_workgroups = ceil(swarm_count / 64.0) 

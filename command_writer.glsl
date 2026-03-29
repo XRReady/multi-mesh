@@ -10,7 +10,7 @@ layout(set = 0, binding = 1, std430) writeonly buffer CommandBuffer { uint comma
 // --- NEW DYNAMIC PUSH CONSTANTS ---
 layout(push_constant, std430) uniform Params {
 	uint swarm_count;
-	uint pad1;
+	uint index_count;
 	uint pad2;
 	uint pad3;
 } params;
@@ -27,9 +27,8 @@ void main() {
 	// Each draw command requires exactly 5 uints.
 	uint cmd_offset = swarm_id * 5; 
 
-	// Godot BoxMesh has 36 indices. If you randomize meshes, you'll need to pass the index counts 
-	// in via a separate buffer or push constants later. For now, 36 is safe for the BoxMesh baseline.
-	commands[cmd_offset + 0] = 36;                     // indexCount
+	// Write the dynamic index count instead of the hardcoded 36
+	commands[cmd_offset + 0] = params.index_count; 
 	commands[cmd_offset + 1] = visible_counts[swarm_id]; // instanceCount
 	commands[cmd_offset + 2] = 0;                      // firstIndex
 	commands[cmd_offset + 3] = 0;                      // vertexOffset

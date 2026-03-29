@@ -83,7 +83,9 @@ void main() {
 		uint global_dst = (swarm_id * params.instances_per_swarm) + local_slot;
 
 		// 3. Generate a unique base color for this specific swarm!
-		float hue = float(swarm_id) / 1000.0; 
+		float total_swarms = float(params.total_instances) / float(params.instances_per_swarm);
+		float hue = float(swarm_id) / total_swarms; 
+		
 		vec3 swarm_color = vec3(
 			0.5 + 0.5 * cos(6.28318 * (hue + 0.0)),
 			0.5 + 0.5 * cos(6.28318 * (hue + 0.33)),

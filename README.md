@@ -15,6 +15,7 @@ This project explores how to render **1,000,000+ dynamic instances** in Godot 4 
   - VRAM bandwidth (**Copy Tax**)  
   - Draw call overhead (**Draw Call Tax**)  
 - Scales to **1,000 independent swarms** in a single compute pass  
+- Ultimately this was a failed experiment. See `v0.4.1-custom-meshes` performance is an order of magnitude drop.
 
 ## 🧪 Test Hardware
 
@@ -70,6 +71,11 @@ We completely eliminated the vertex shader bottleneck by preventing the GPU from
 ### 4. `v0.4.0-multi-swarm` : The Mega-Buffer 
 We decoupled the system to support thousands of distinct swarms, paving the way for each swarm to use entirely different 3D meshes.
 * **How it works:** A single compute dispatch calculates physics for `total_instances` entities and mathematically partitions them into a "Mega-Buffer". A third compute pass uses `rd.buffer_copy` to distribute the packed data into Godot's individual `MultiMesh` internal buffers.
+
+#### 5. `v0.4.1-custom-meshes` : Dynamic Indexing & The Geometry Wall
+We decoupled the pipeline from the hardcoded `BoxMesh`, allowing the compute shader to dynamically read index counts and render complex custom `.tscn` assets (like trees and player models). We also fixed material reference garbage collection and dynamic color scaling.
+* **The Result:** The system can now render complex, multi-surface models with unified materials and dynamic compute colors.
+* **The Catch:** Rendering 100,000 complex trees proved to be an order of magnitude more expensive than rendering 1,000,000 simple cubes, severely bottlenecking the GPU's rasterizer.
 
 ---
 
